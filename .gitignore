@@ -1,0 +1,5 @@
+venv/
+.pth
+*.dll
+__pycache__/
+.env
