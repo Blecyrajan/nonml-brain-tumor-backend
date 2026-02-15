@@ -5,10 +5,6 @@ email-validator
 bcrypt
 pymongo
 python-multipart
-torch
-torchvision
-timm
-pillow
 python-dotenv
 requests
 dnspython

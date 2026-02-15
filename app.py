@@ -1,4 +1,5 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Request
+from tkinter.tix import Form
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
 import shutil
@@ -6,16 +7,16 @@ import os
 from datetime import datetime, timezone
 from fastapi.staticfiles import StaticFiles
 from llm_client import ask_biomistral
-
-
-
+import requests
 from database import users_collection, predictions_collection
 from utils import hash_password, verify_password
-from predict import predict_image
+
 
 app = FastAPI()
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+HF_PREDICT_URL = "https://blecy2002-brain-tumor-predictor.hf.space/predict"
 
 
 # ---------------- CORS ----------------
@@ -77,55 +78,33 @@ def login_user(data: LoginRequest):
         "email": user["email"]
     }
 
-# ---------------- PREDICT ----------------
-from fastapi import Request
-from datetime import datetime
 
 @app.post("/predict")
-async def predict(
-    request: Request,
-    file: UploadFile = File(...),
-    user: str = ""
-):
-    print("PREDICT API HIT BY:", user)
-
-    os.makedirs("uploads", exist_ok=True)
-
-    file_path = os.path.join("uploads", file.filename)
-
+async def predict(file: UploadFile = File(...), user: str = Form(...)):
+    # Save uploaded image locally (optional)
+    file_path = f"uploads/{file.filename}"
     with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        buffer.write(await file.read())
 
-    print("IMAGE SAVED AT:", file_path)
+    # Call Hugging Face Space
+    with open(file_path, "rb") as f:
+        response = requests.post(
+            HF_PREDICT_URL,
+            files={"file": f}
+        )
 
-    # 🔹 ML prediction
-    result = predict_image(file_path)
+    result = response.json()
 
-    # 🔹 IMPORTANT: build image URL EXPLICITLY
-    image_url = f"http://{request.headers['host']}/uploads/{file.filename}"
-
-    print("IMAGE URL:", image_url)
-    print("PREDICTION RESULT:", result)
-
-    # 🔹 SAVE TO MONGODB (THIS WAS MISSING / WRONG)
+    # Save prediction to MongoDB
     predictions_collection.insert_one({
         "user": user,
-        "image": file.filename,
-        "image_url": image_url,
         "prediction": result["class"],
         "confidence": result["confidence"],
+        "image_url": f"/uploads/{file.filename}",
         "timestamp": datetime.now(timezone.utc)
     })
 
-    print("PREDICTION SAVED TO DB")
-
-    # 🔹 RETURN EVERYTHING FLUTTER NEEDS
-    return {
-        "class": result["class"],
-        "confidence": result["confidence"],
-        "image_url": image_url
-    }
-
+    return result
 
 
 # ---------------- HISTORY ----------------
