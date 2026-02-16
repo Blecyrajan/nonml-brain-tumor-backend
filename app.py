@@ -15,6 +15,7 @@ from utils import hash_password, verify_password
 
 app = FastAPI()
 
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 HF_PREDICT_URL = "https://blecy2002-brain-tumor-predictor.hf.space/predict"
 
