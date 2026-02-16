@@ -15,7 +15,6 @@ from utils import hash_password, verify_password
 
 app = FastAPI()
 
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 HF_PREDICT_URL = "https://blecy2002-brain-tumor-predictor.hf.space/predict"
 
@@ -106,7 +105,9 @@ async def predict(file: UploadFile = File(...), user: str = Form(...)):
     result = response.json()
 
     # Build full image URL
-    image_url = f"/uploads/{filename}"
+    BASE_URL = "https://nonml-brain-tumor-backend.onrender.com"
+    image_url = f"{BASE_URL}/uploads/{filename}"
+
 
     # Save prediction to MongoDB
     predictions_collection.insert_one({
