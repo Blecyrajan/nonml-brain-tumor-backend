@@ -1,3 +1,4 @@
+from fileinput import filename
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
@@ -80,8 +81,14 @@ def login_user(data: LoginRequest):
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...), user: str = Form(...)):
-    # Save uploaded image locally (optional)
-    file_path = f"uploads/{file.filename}"
+    # Ensure uploads directory exists
+    os.makedirs("uploads", exist_ok=True)
+
+    # Create unique filename
+    filename = f"{user}_{int(time.time())}_{file.filename}"
+    file_path = f"uploads/{filename}"
+
+    # Save uploaded image locally
     with open(file_path, "wb") as buffer:
         buffer.write(await file.read())
 
@@ -92,18 +99,29 @@ async def predict(file: UploadFile = File(...), user: str = Form(...)):
             files={"file": f}
         )
 
+    if response.status_code != 200:
+        raise HTTPException(status_code=500, detail="Prediction service failed")
+
     result = response.json()
+
+    # Build full image URL
+    image_url = f"/uploads/{filename}"
 
     # Save prediction to MongoDB
     predictions_collection.insert_one({
         "user": user,
         "prediction": result["class"],
         "confidence": result["confidence"],
-        "image_url": f"/uploads/{file.filename}",
+        "image_url": image_url,
         "timestamp": datetime.now(timezone.utc)
     })
 
-    return result
+    # return image_url to frontend
+    return {
+        "class": result["class"],
+        "confidence": result["confidence"],
+        "image_url": image_url
+    }
 
 
 # ---------------- HISTORY ----------------
