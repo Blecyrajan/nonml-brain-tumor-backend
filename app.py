@@ -11,7 +11,9 @@ from llm_client import ask_biomistral
 import requests
 from database import users_collection, predictions_collection
 from utils import hash_password, verify_password
-
+import random
+import cv2
+import numpy as np
 
 app = FastAPI()
 
@@ -79,6 +81,66 @@ def login_user(data: LoginRequest):
         "email": user["email"]
     }
 
+#-----------FEATURE SCORES----------------
+def compute_feature_scores(image_path, heatmap_path):
+    # Load original image
+    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    img = cv2.resize(img, (224, 224))
+
+    # Load heatmap
+    heatmap = cv2.imread(heatmap_path)
+    heatmap = cv2.resize(heatmap, (224, 224))
+    heatmap_gray = cv2.cvtColor(heatmap, cv2.COLOR_BGR2GRAY)
+
+    # Normalize heatmap
+    heatmap_norm = heatmap_gray / 255.0
+
+    # -----------------------------
+    # 1. TUMOR REGION MASK
+    # -----------------------------
+    threshold = 0.6   # focus on important regions
+    mask = heatmap_norm > threshold
+
+    # Avoid empty mask
+    if np.sum(mask) == 0:
+        mask = heatmap_norm > 0.3
+
+    # -----------------------------
+    # 2. ASYMMETRY (ECL BASED)
+    # -----------------------------
+    left = img[:, :112]
+    right = img[:, 112:]
+    right_flipped = cv2.flip(right, 1)
+
+    diff = cv2.absdiff(left, right_flipped)
+
+    asymmetry_score = np.mean(diff * mask[:, :112])
+    asymmetry_score = min(100, (asymmetry_score / 50) * 100)
+
+    # -----------------------------
+    # 3. TEXTURE (ONLY TUMOR REGION)
+    # -----------------------------
+    texture_score = np.std(img[mask])
+    texture_score = min(100, (texture_score / 80) * 100)
+
+    # -----------------------------
+    # 4. BOUNDARY (EDGES IN REGION)
+    # -----------------------------
+    edges = cv2.Canny(img, 100, 200)
+    boundary_score = np.mean(edges[mask])
+    boundary_score = min(100, (boundary_score / 50) * 100)
+
+    # -----------------------------
+    # 5. TUMOR AREA %
+    # -----------------------------
+    tumor_area = (np.sum(mask) / (224 * 224)) * 100
+
+    return {
+        "asymmetry": round(asymmetry_score, 2),
+        "texture": round(texture_score, 2),
+        "boundary": round(boundary_score, 2),
+        "tumor_area": round(tumor_area, 2)
+    }
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...), user: str = Form(...)):
@@ -105,10 +167,17 @@ async def predict(file: UploadFile = File(...), user: str = Form(...)):
 
     result = response.json()
 
+
     # Build full image URL
     BASE_URL = "https://nonml-brain-tumor-backend.onrender.com"
     image_url = f"{BASE_URL}/uploads/{filename}"
 
+    heatmap_url = result.get("heatmap_url", "")
+
+    # Convert URL → local path if needed
+    heatmap_path = file_path.replace(".jpg", "_heatmap.jpg")
+
+    features = compute_feature_scores(file_path, heatmap_path)
 
     # Save prediction to MongoDB
     predictions_collection.insert_one({
@@ -123,7 +192,9 @@ async def predict(file: UploadFile = File(...), user: str = Form(...)):
     return {
         "class": result["class"],
         "confidence": result["confidence"],
-        "image_url": image_url
+        "image_url": image_url,
+        "heatmap_url": heatmap_url,
+        "features": features
     }
 
 
@@ -144,3 +215,4 @@ def chat_with_ai(data: ChatRequest):
     print("CHAT REQUEST FROM:", data.user)
     answer = ask_biomistral(data.question)
     return {"answer": answer}
+
