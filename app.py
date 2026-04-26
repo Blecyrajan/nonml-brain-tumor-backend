@@ -1,3 +1,4 @@
+#backend/app.py
 from fileinput import filename
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Form
 from fastapi.middleware.cors import CORSMiddleware
@@ -83,6 +84,9 @@ def login_user(data: LoginRequest):
 
 #-----------FEATURE SCORES----------------
 def compute_feature_scores(image_path, heatmap_path):
+    if not os.path.exists(heatmap_path):
+        heatmap_path = image_path
+        
     # Load original image
     img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
     img = cv2.resize(img, (224, 224))
@@ -175,7 +179,8 @@ async def predict(file: UploadFile = File(...), user: str = Form(...)):
     heatmap_url = result.get("heatmap_url", "")
 
     # Convert URL → local path if needed
-    heatmap_path = file_path.replace(".jpg", "_heatmap.jpg")
+    #heatmap_path = file_path.replace(".jpg", "_heatmap.jpg")
+    heatmap_path = heatmap_url if heatmap_url else file_path
 
     features = compute_feature_scores(file_path, heatmap_path)
 
