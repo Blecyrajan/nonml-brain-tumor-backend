@@ -178,9 +178,24 @@ async def predict(file: UploadFile = File(...), user: str = Form(...)):
 
     heatmap_url = result.get("heatmap_url", "")
 
-    # Convert URL → local path if needed
-    #heatmap_path = file_path.replace(".jpg", "_heatmap.jpg")
-    heatmap_path = heatmap_url if heatmap_url else file_path
+    # default fallback
+    heatmap_path = file_path
+
+    # If HF returned heatmap URL, download locally
+    if heatmap_url:
+        local_heatmap_path = file_path.replace(".jpg", "_heatmap.jpg").replace(".png", "_heatmap.jpg").replace(".jpeg", "_heatmap.jpg")
+
+        try:
+            r = requests.get(heatmap_url, timeout=20)
+
+            if r.status_code == 200:
+                with open(local_heatmap_path, "wb") as f:
+                    f.write(r.content)
+
+                heatmap_path = local_heatmap_path
+
+        except Exception as e:
+            print("Heatmap download failed:", e)
 
     features = compute_feature_scores(file_path, heatmap_path)
 
