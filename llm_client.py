@@ -6,7 +6,7 @@ load_dotenv()
 
 HF_API_KEY = os.getenv("HF_API_KEY")
 
-API_URL = "https://router.huggingface.co/v1/chat/completions"
+#API_URL = "https://router.huggingface.co/v1/chat/completions"
 
 HEADERS = {
     "Authorization": f"Bearer {HF_API_KEY}",
@@ -23,7 +23,7 @@ SYSTEM_PROMPT = (
 
 def ask_biomistral(question: str) -> str:
     payload = {
-        "model": "mistralai/Mistral-7B-Instruct-v0.2:together",
+        "model": "google/medgemma-1.5-4b-it",
         "messages": [
             {
                 "role": "system",
