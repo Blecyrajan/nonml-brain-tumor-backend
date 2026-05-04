@@ -6,7 +6,7 @@ load_dotenv()
 
 HF_API_KEY = os.getenv("HF_API_KEY")
 
-#API_URL = "https://router.huggingface.co/v1/chat/completions"
+API_URL = "https://router.huggingface.co/v1/chat/completions"
 
 HEADERS = {
     "Authorization": f"Bearer {HF_API_KEY}",
