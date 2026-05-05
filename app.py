@@ -82,12 +82,11 @@ def login_user(data: LoginRequest):
         "email": user["email"]
     }
 
-#-----------FEATURE SCORES----------------
 def compute_feature_scores(image_path, heatmap_path):
     if not os.path.exists(heatmap_path):
         heatmap_path = image_path
-        
-    # Load original image
+
+    # Load image
     img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
     img = cv2.resize(img, (224, 224))
 
@@ -96,54 +95,70 @@ def compute_feature_scores(image_path, heatmap_path):
     heatmap = cv2.resize(heatmap, (224, 224))
     heatmap_gray = cv2.cvtColor(heatmap, cv2.COLOR_BGR2GRAY)
 
-    # Normalize heatmap
     heatmap_norm = heatmap_gray / 255.0
 
     # -----------------------------
-    # 1. TUMOR REGION MASK
+    # Tumor Mask
     # -----------------------------
-    threshold = 0.6   # focus on important regions
-    mask = heatmap_norm > threshold
-
-    # Avoid empty mask
+    mask = heatmap_norm > 0.5
     if np.sum(mask) == 0:
         mask = heatmap_norm > 0.3
 
     # -----------------------------
-    # 2. ASYMMETRY (ECL BASED)
-    # -----------------------------
-    left = img[:, :112]
-    right = img[:, 112:]
-    right_flipped = cv2.flip(right, 1)
-
-    diff = cv2.absdiff(left, right_flipped)
-
-    asymmetry_score = np.mean(diff * mask[:, :112])
-    asymmetry_score = min(100, (asymmetry_score / 50) * 100)
-
-    # -----------------------------
-    # 3. TEXTURE (ONLY TUMOR REGION)
-    # -----------------------------
-    texture_score = np.std(img[mask])
-    texture_score = min(100, (texture_score / 80) * 100)
-
-    # -----------------------------
-    # 4. BOUNDARY (EDGES IN REGION)
-    # -----------------------------
-    edges = cv2.Canny(img, 100, 200)
-    boundary_score = np.mean(edges[mask])
-    boundary_score = min(100, (boundary_score / 50) * 100)
-
-    # -----------------------------
-    # 5. TUMOR AREA %
+    # 1. Tumor Size (%)
     # -----------------------------
     tumor_area = (np.sum(mask) / (224 * 224)) * 100
 
+    # -----------------------------
+    # 2. Tumor Location
+    # -----------------------------
+    left_area = np.sum(mask[:, :112])
+    right_area = np.sum(mask[:, 112:])
+
+    if left_area > right_area * 1.2:
+        location = "Left Hemisphere"
+    elif right_area > left_area * 1.2:
+        location = "Right Hemisphere"
+    else:
+        location = "Central"
+
+    # -----------------------------
+    # 3. Shape Irregularity
+    # -----------------------------
+    mask_uint8 = (mask * 255).astype(np.uint8)
+    contours, _ = cv2.findContours(mask_uint8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    if len(contours) > 0:
+        cnt = max(contours, key=cv2.contourArea)
+        perimeter = cv2.arcLength(cnt, True)
+        area = cv2.contourArea(cnt)
+
+        if area > 0:
+            circularity = (4 * np.pi * area) / (perimeter ** 2 + 1e-8)
+            irregularity = (1 - circularity) * 100
+        else:
+            irregularity = 0
+    else:
+        irregularity = 0
+
+    irregularity = min(100, irregularity)
+
+    # -----------------------------
+    # 4. Intensity Heterogeneity
+    # -----------------------------
+    tumor_pixels = img[mask]
+
+    if len(tumor_pixels) > 0:
+        heterogeneity = np.std(tumor_pixels)
+        heterogeneity = min(100, (heterogeneity / 80) * 100)
+    else:
+        heterogeneity = 0
+
     return {
-        "asymmetry": round(asymmetry_score, 2),
-        "texture": round(texture_score, 2),
-        "boundary": round(boundary_score, 2),
-        "tumor_area": round(tumor_area, 2)
+        "tumor_size_%": round(tumor_area, 2),
+        "tumor_location": location,
+        "shape_irregularity_%": round(irregularity, 2),
+        "heterogeneity_%": round(heterogeneity, 2)
     }
 
 @app.post("/predict")
