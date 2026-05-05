@@ -220,10 +220,12 @@ async def predict(file: UploadFile = File(...), user: str = Form(...)):
         "prediction": result["class"],
         "confidence": result["confidence"],
         "image_url": image_url,
-        "timestamp": datetime.now(timezone.utc)
+        "timestamp": datetime.now(timezone.utc),
+        "heatmap_url": heatmap_url,
+        "features": features
     })
 
-    # return image_url to frontend
+    # return image_url to frontendU
     return {
         "class": result["class"],
         "confidence": result["confidence"],
