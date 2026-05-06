@@ -15,7 +15,7 @@ from database import users_collection, predictions_collection
 from utils import hash_password, verify_password
 
 import cloudinary
-import cloudinary.uploader
+from cloudinary import uploader
 
 
 # =========================================================

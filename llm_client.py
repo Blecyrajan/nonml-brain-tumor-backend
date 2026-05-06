@@ -19,7 +19,7 @@ SYSTEM_PROMPT = (
 )
 def ask_biomistral(question: str) -> str:
     payload = {
-        "model": "google/medgemma-1.5-4b-it",
+        "model": "google/medgemma-27b-it",
         "messages": [
 {
  "role": "system",
