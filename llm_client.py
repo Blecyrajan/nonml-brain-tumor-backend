@@ -19,8 +19,11 @@ gcp_creds = os.getenv("GCP_CREDENTIALS")
 if not gcp_creds:
     raise Exception("GCP_CREDENTIALS missing")
 
+# validate json
+creds_dict = json.loads(gcp_creds)
+
 with open("gcp_key.json", "w") as f:
-    f.write(gcp_creds)
+    json.dump(creds_dict, f)
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "gcp_key.json"
 
@@ -53,6 +56,22 @@ endpoint = aiplatform.Endpoint(
 )
 
 # ======================================================
+# SYSTEM PROMPT
+# ======================================================
+
+SYSTEM_PROMPT = """
+You are a medical AI assistant.
+
+Only provide educational explanations.
+
+Do not provide diagnosis,
+treatment,
+or medical advice.
+
+Explain concepts in simple language.
+"""
+
+# ======================================================
 # ASK MODEL
 # ======================================================
 
@@ -60,21 +79,43 @@ def ask_biomistral(question: str):
 
     try:
 
+        # ==========================================
+        # CHAT COMPLETION FORMAT
+        # ==========================================
+
         instances = [
             {
-                "inputs": question
+                "@requestFormat": "chatCompletions",
+
+                "messages": [
+
+                    {
+                        "role": "system",
+                        "content": SYSTEM_PROMPT
+                    },
+
+                    {
+                        "role": "user",
+                        "content": question
+                    }
+
+                ],
+
+                "max_tokens": 512,
+                "temperature": 0.4,
+                "top_p": 1.0
             }
         ]
+
+        # ==========================================
+        # PREDICT
+        # ==========================================
 
         response = endpoint.predict(
             instances=instances
         )
 
         print("VERTEX RESPONSE:", response)
-
-        # ==========================================
-        # HANDLE RESPONSE
-        # ==========================================
 
         predictions = response.predictions
 
@@ -83,12 +124,20 @@ def ask_biomistral(question: str):
 
         pred = predictions[0]
 
-        # string response
-        if isinstance(pred, str):
-            return pred
+        print("PRED:", pred)
 
-        # dict response
+        # ==========================================
+        # OPENAI STYLE RESPONSE
+        # ==========================================
+
         if isinstance(pred, dict):
+
+            if "choices" in pred:
+
+                return (
+                    pred["choices"][0]
+                    ["message"]["content"]
+                )
 
             if "generated_text" in pred:
                 return pred["generated_text"]
@@ -96,10 +145,10 @@ def ask_biomistral(question: str):
             if "content" in pred:
                 return pred["content"]
 
-            if "outputs" in pred:
-                return pred["outputs"]
-
             return str(pred)
+
+        if isinstance(pred, str):
+            return pred
 
         return str(pred)
 
