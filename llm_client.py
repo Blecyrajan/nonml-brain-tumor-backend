@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from google.cloud import aiplatform
 
 # ======================================================
-# LOAD ENV
+# LOAD ENV VARIABLES
 # ======================================================
 
 load_dotenv()
@@ -19,12 +19,14 @@ gcp_creds = os.getenv("GCP_CREDENTIALS")
 if not gcp_creds:
     raise Exception("GCP_CREDENTIALS missing")
 
-# validate json
+# Validate JSON
 creds_dict = json.loads(gcp_creds)
 
+# Save credentials file
 with open("gcp_key.json", "w") as f:
     json.dump(creds_dict, f)
 
+# Set environment variable
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "gcp_key.json"
 
 # ======================================================
@@ -60,15 +62,18 @@ endpoint = aiplatform.Endpoint(
 # ======================================================
 
 SYSTEM_PROMPT = """
-You are a medical AI assistant.
+You are a helpful medical AI assistant.
 
-Only provide educational explanations.
+Provide concise, accurate,
+easy-to-understand educational explanations.
+
+Only provide educational information.
 
 Do not provide diagnosis,
-treatment,
-or medical advice.
+treatment plans,
+or prescriptions.
 
-Explain concepts in simple language.
+Keep answers natural and conversational.
 """
 
 # ======================================================
@@ -79,17 +84,38 @@ def ask_biomistral(question: str):
 
     try:
 
+        # ==================================================
+        # PROMPT
+        # ==================================================
+
+        prompt = f"""
+        {SYSTEM_PROMPT}
+
+        Question:
+        {question}
+
+        Answer:
+        """
+
+        # ==================================================
+        # REQUEST PAYLOAD
+        # ==================================================
+
         instances = [
             {
-                "prompt": f"""
-                {SYSTEM_PROMPT}
+                "prompt": prompt,
 
-                User: {question}
+                "max_tokens": 512,
 
-                Assistant:
-                """
+                "temperature": 0.6,
+
+                "top_p": 0.9
             }
         ]
+
+        # ==================================================
+        # CALL VERTEX ENDPOINT
+        # ==================================================
 
         response = endpoint.predict(
             instances=instances
@@ -99,6 +125,10 @@ def ask_biomistral(question: str):
 
         predictions = response.predictions
 
+        # ==================================================
+        # EMPTY RESPONSE
+        # ==================================================
+
         if len(predictions) == 0:
             return "No response generated."
 
@@ -106,34 +136,68 @@ def ask_biomistral(question: str):
 
         print("PRED:", pred)
 
-        # ======================================
+        # ==================================================
         # STRING RESPONSE
-        # ======================================
+        # ==================================================
 
         if isinstance(pred, str):
-            return pred
 
-        # ======================================
-        # DICT RESPONSE
-        # ======================================
+            text = pred
 
-        if isinstance(pred, dict):
+        # ==================================================
+        # DICTIONARY RESPONSE
+        # ==================================================
+
+        elif isinstance(pred, dict):
 
             if "generated_text" in pred:
-                return pred["generated_text"]
+                text = pred["generated_text"]
 
-            if "content" in pred:
-                return pred["content"]
+            elif "content" in pred:
+                text = pred["content"]
 
-            if "output" in pred:
-                return pred["output"]
+            elif "output" in pred:
+                text = pred["output"]
 
-            if "response" in pred:
-                return pred["response"]
+            elif "response" in pred:
+                text = pred["response"]
 
-            return str(pred)
+            else:
+                text = str(pred)
 
-        return str(pred)
+        else:
+
+            text = str(pred)
+
+        # ==================================================
+        # CLEAN RESPONSE
+        # ==================================================
+
+        unwanted_phrases = [
+
+            "Prompt:",
+            "Output:",
+            "Assistant:",
+            "Answer:",
+            "Question:",
+            SYSTEM_PROMPT
+        ]
+
+        for phrase in unwanted_phrases:
+            text = text.replace(phrase, "")
+
+        # remove extra whitespace
+        text = text.strip()
+
+        # ==================================================
+        # RETURN CLEANED TEXT
+        # ==================================================
+
+        return text
+
+    # ======================================================
+    # ERROR HANDLING
+    # ======================================================
 
     except Exception as e:
 
