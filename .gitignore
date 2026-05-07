@@ -3,3 +3,4 @@ venv/
 *.dll
 __pycache__/
 .env
+gcp_key.json
