@@ -65,15 +65,20 @@ SYSTEM_PROMPT = """
 You are a helpful medical AI assistant.
 
 Provide concise, accurate,
-easy-to-understand educational explanations.
+patient-friendly educational explanations.
 
 Only provide educational information.
 
 Do not provide diagnosis,
-treatment plans,
-or prescriptions.
+prescriptions,
+or treatment plans.
 
-Keep answers natural and conversational.
+Do not repeat the question.
+
+Do not use markdown symbols
+such as *, **, #.
+
+Return clean plain text only.
 """
 
 # ======================================================
@@ -105,7 +110,7 @@ def ask_biomistral(question: str):
             {
                 "prompt": prompt,
 
-                "max_tokens": 512,
+                "max_tokens": 700,
 
                 "temperature": 0.6,
 
@@ -180,17 +185,54 @@ def ask_biomistral(question: str):
             "Assistant:",
             "Answer:",
             "Question:",
-            SYSTEM_PROMPT
+            SYSTEM_PROMPT,
+            question
         ]
 
         for phrase in unwanted_phrases:
             text = text.replace(phrase, "")
 
-        # remove extra whitespace
+        # --------------------------------------------------
+        # REMOVE MARKDOWN SYMBOLS
+        # --------------------------------------------------
+
+        text = text.replace("**", "")
+        text = text.replace("*", "")
+        text = text.replace("###", "")
+        text = text.replace("##", "")
+        text = text.replace("#", "")
+
+        # --------------------------------------------------
+        # FIX ESCAPED NEWLINES
+        # --------------------------------------------------
+
+        text = text.replace("\\n", "\n")
+
+        # --------------------------------------------------
+        # REMOVE EXTRA EMPTY LINES
+        # --------------------------------------------------
+
+        lines = text.splitlines()
+
+        cleaned_lines = []
+
+        for line in lines:
+
+            line = line.strip()
+
+            if line != "":
+                cleaned_lines.append(line)
+
+        text = "\n".join(cleaned_lines)
+
+        # --------------------------------------------------
+        # FINAL CLEANUP
+        # --------------------------------------------------
+
         text = text.strip()
 
         # ==================================================
-        # RETURN CLEANED TEXT
+        # RETURN CLEAN TEXT
         # ==================================================
 
         return text
