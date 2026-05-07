@@ -79,37 +79,17 @@ def ask_biomistral(question: str):
 
     try:
 
-        # ==========================================
-        # CHAT COMPLETION FORMAT
-        # ==========================================
-
         instances = [
             {
-                "@requestFormat": "chatCompletions",
+                "prompt": f"""
+                {SYSTEM_PROMPT}
 
-                "messages": [
+                User: {question}
 
-                    {
-                        "role": "system",
-                        "content": SYSTEM_PROMPT
-                    },
-
-                    {
-                        "role": "user",
-                        "content": question
-                    }
-
-                ],
-
-                "max_tokens": 512,
-                "temperature": 0.4,
-                "top_p": 1.0
+                Assistant:
+                """
             }
         ]
-
-        # ==========================================
-        # PREDICT
-        # ==========================================
 
         response = endpoint.predict(
             instances=instances
@@ -126,18 +106,18 @@ def ask_biomistral(question: str):
 
         print("PRED:", pred)
 
-        # ==========================================
-        # OPENAI STYLE RESPONSE
-        # ==========================================
+        # ======================================
+        # STRING RESPONSE
+        # ======================================
+
+        if isinstance(pred, str):
+            return pred
+
+        # ======================================
+        # DICT RESPONSE
+        # ======================================
 
         if isinstance(pred, dict):
-
-            if "choices" in pred:
-
-                return (
-                    pred["choices"][0]
-                    ["message"]["content"]
-                )
 
             if "generated_text" in pred:
                 return pred["generated_text"]
@@ -145,10 +125,13 @@ def ask_biomistral(question: str):
             if "content" in pred:
                 return pred["content"]
 
-            return str(pred)
+            if "output" in pred:
+                return pred["output"]
 
-        if isinstance(pred, str):
-            return pred
+            if "response" in pred:
+                return pred["response"]
+
+            return str(pred)
 
         return str(pred)
 
