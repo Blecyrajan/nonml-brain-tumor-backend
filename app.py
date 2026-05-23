@@ -10,7 +10,7 @@ import numpy as np
 
 from datetime import datetime, timezone
 
-from llm_client import ask_biomistral
+from llm_client import ask_medical_llm
 from database import users_collection, predictions_collection
 from utils import hash_password, verify_password
 
@@ -73,6 +73,7 @@ class LoginRequest(BaseModel):
 class ChatRequest(BaseModel):
     user: EmailStr
     question: str
+    prediction: str | None = None
 
 
 # =========================================================
@@ -479,7 +480,10 @@ def chat_with_ai(data: ChatRequest):
 
     print("CHAT REQUEST FROM:", data.user)
 
-    answer = ask_biomistral(data.question)
+    answer = ask_medical_llm(
+        data.question,
+        data.prediction
+    )
 
     return {
         "answer": answer
