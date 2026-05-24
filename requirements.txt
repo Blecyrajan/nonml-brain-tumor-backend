@@ -25,7 +25,7 @@ google-auth-httplib2==0.4.0
 google-auth-oauthlib==1.4.0
 google-auth[requests]==2.53.0
 
-# Strict dependency resolution overrides
-google-api-core==2.30.3
-grpcio==1.71.2
-grpcio-status==1.71.2
+# Loosened Resolution Fixes
+#google-api-core>=2.20.0,<3.0.0
+#grpcio>=1.60.0,<1.70.0
+#grpcio-status>=1.60.0,<1.70.0
