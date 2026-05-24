@@ -24,7 +24,7 @@ genai.configure(api_key=API_KEY)
 # ==========================================
 
 model = genai.GenerativeModel(
-    "gemini-1.5-flash"
+    "gemini-2.5-flash"
 )
 
 # ==========================================
