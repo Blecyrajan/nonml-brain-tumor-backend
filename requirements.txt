@@ -17,15 +17,10 @@ pydantic==2.13.4
 numpy==2.2.6
 opencv-python-headless==4.13.0.92
 
-# Google Cloud & AI Tools
-google-generativeai==0.8.6
-google-cloud-aiplatform==1.153.1
-google-api-python-client==2.196.0
-google-auth-httplib2==0.4.0
-google-auth-oauthlib==1.4.0
-google-auth[requests]==2.53.0
-
-# Loosened Resolution Fixes
-#google-api-core>=2.20.0,<3.0.0
-#grpcio>=1.60.0,<1.70.0
-#grpcio-status>=1.60.0,<1.70.0
+# Google Cloud & AI Tools (Loosened to find Python 3.11 compatible versions)
+google-generativeai>=0.8.0
+google-cloud-aiplatform>=1.150.0
+google-api-python-client>=2.100.0
+google-auth-httplib2>=0.2.0
+google-auth-oauthlib>=1.2.0
+google-auth[requests]>=2.25.0
